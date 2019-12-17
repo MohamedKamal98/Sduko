@@ -15,10 +15,16 @@ ColorMatrix byte 81 dup(30h)            ;Contains 1 ifthe current char is not 0
 
 YeditOffset dword offset EditMatrix     ; used in filling the EditMatrix
 YcolorOffset dword offset ColorMatrix   ; used in filling the ColorMatrix
-Ytmp dword 0                            ; used in filling the ColorMatrix
+Ytmp dword 0                            
+Ytmp2 dword 0
 YinitialIsFull byte 0
 checkRight byte 0					; = '1' if the number entered is correct & '0' if it is wrong 
 Ycounter byte 0						; if > 9 endline (used in YDisplay)
+YRowIndexCounter byte 1					
+YColCounter	byte 1				
+YRowCounter byte 1
+
+
 
 UnSolvedFiles BYTE "diff_1_1.txt",0,"diff_1_2.txt",0,"diff_1_3.txt",0,"diff_2_1.txt",0,"diff_2_2.txt",0,"diff_2_3.txt",0,"diff_3_1.txt",0,"diff_3_2.txt",0,"diff_3_3.txt"
 SolvedFiles BYTE "diff_1_1_solved.txt",0,"diff_1_2_solved.txt",0,"diff_1_3_solved.txt",0,"diff_2_1_solved.txt",0,"diff_2_2_solved.txt",0,"diff_2_3_solved.txt",0,"diff_3_1_solved.txt",0,"diff_3_2_solved.txt",0,"diff_3_3_solved.txt"
@@ -199,10 +205,27 @@ ColorItBlue PROC
 	ret
 ColorItBlue ENDP
 
+ColorItYellow PROC
+	mov eax,yellow+(black*16)
+	call SetTextColor
+
+	ret
+ColorItYellow ENDP
+
 ;Displayes the board with each new value
 YDisplay PROC
-
+mov YRowIndexCounter, 2				
+mov YColCounter, 1				
+mov YRowCounter, 1
+mov Ycounter, 0	
 call clrscr
+call ColorItYellow
+mWrite "   1 2 3  |  4 5 6  |  7 8 9 "
+call crlf
+mwrite "   ---------------------------"
+call crlf
+mwrite "1 |"
+call DefaultColor
 
 mov ecx,sizeof EditMatrix
 mov ebp, 0
@@ -225,15 +248,61 @@ call ColorItGreen			;if the current value is RIGHT
 
 SKIP:
 mov al, EditMatrix[ebp]
+cmp YColCounter, 3
+jbe PRINTSPACECOLUMN
+mov Ytmp, eax
+call DefaultColor
+mov eax, Ytmp
+mWrite " |  "
+mov YColCounter, 1
+
+PRINTSPACECOLUMN:
+inc YColCounter
 call writeChar				;print the current element in EditMatrix
+mWrite " "
 inc ebp
 inc Ycounter				
 cmp Ycounter, 9
-jb CONT						
-call crlf					;if Ycounter > 9 endLine
+jb CONT	
+mov Ytmp, eax
+call ColorItYellow
+mwrite "|"	
+mov eax, Ytmp
+cmp YRowCounter, 3
+jb PRINTSPACEROW		
+call crlf
+mov Ytmp,eax
+call DefaultColor
+mov eax,Ytmp
+mov Ytmp,ecx
+ mWrite "  |------"
+mov ecx, 2
+PRINTDASHESLOOP:
+ mWrite "   -------"
+loop PRINTDASHESLOOP
+mov ecx, Ytmp
+mwrite "|"	
+mov YRowCounter, 0
+PRINTSPACEROW:
+call crlf				;if Ycounter > 9 endLine
+
+cmp YRowIndexCounter, 9
+ja CONT
+mov Ytmp, eax
+call ColorItYellow
+mov al, YRowIndexCounter
+call writeDec
+mwrite " |"
+inc YRowIndexCounter
+mov eax,Ytmp
+call DefaultColor
+
+mov YColCounter, 1
 mov Ycounter, 0
+inc YRowCounter
 CONT:
-loop DisplayEditLoop
+DEC ecx
+jnz DisplayEditLoop
 
 ret
 YDisplay ENDP
@@ -355,6 +424,8 @@ TransferData ENDP
 
 ;PROC to get the index of selected index in 1D array
 GetIndex PROC   
+	dec Row
+	dec Col
 	mov Ytmp, eax     
 	mov index, 0
 	mov al, 9
