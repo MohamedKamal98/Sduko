@@ -324,7 +324,7 @@ jmp Continue
 DontSetColor:
 
 inc YcolorOffset
-
+mov al,' '
 Continue:
 stosb						;store into InitialMatrix
 mov edi, edx
