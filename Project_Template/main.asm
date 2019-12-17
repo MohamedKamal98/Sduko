@@ -17,7 +17,8 @@ YeditOffset dword offset EditMatrix     ; used in filling the EditMatrix
 YcolorOffset dword offset ColorMatrix   ; used in filling the ColorMatrix
 Ytmp dword 0                            ; used in filling the ColorMatrix
 YinitialIsFull byte 0
-
+checkRight byte 0					; = '1' if the number entered is correct & '0' if it is wrong 
+Ycounter byte 0						; if > 9 endline (used in YDisplay)
 
 UnSolvedFiles BYTE "diff_1_1.txt",0,"diff_1_2.txt",0,"diff_1_3.txt",0,"diff_2_1.txt",0,"diff_2_2.txt",0,"diff_2_3.txt",0,"diff_3_1.txt",0,"diff_3_2.txt",0,"diff_3_3.txt"
 SolvedFiles BYTE "diff_1_1_solved.txt",0,"diff_1_2_solved.txt",0,"diff_1_3_solved.txt",0,"diff_2_1_solved.txt",0,"diff_2_2_solved.txt",0,"diff_2_3_solved.txt",0,"diff_3_1_solved.txt",0,"diff_3_2_solved.txt",0,"diff_3_3_solved.txt"
@@ -43,8 +44,9 @@ mWrite "Choose Level : ",0
 	call readint
 
 call ShowBoards 
-
+MAINLOOP:
 call Kedit
+jmp MAINLOOP
 	exit
 main ENDP
 
@@ -64,6 +66,7 @@ YFinalLoop:
        sol:
         mov	edx,OFFSET SolvedFiles
 		mov bl, byte ptr str2Len
+		jmp Next
 
 mnext:
 	cmp eax,1
@@ -122,18 +125,17 @@ check_buffer_size:
 	jb	buf_size_ok				                   ; yes
 	mWrite <"Error: Buffer too small for the file",0dh,0ah>
 	jmp	quit						               ; and quit
-	
+
+
 buf_size_ok:	
+	cmp check,0 
+	jne close_file
+
 	mov	buffer[eax],0		                       ; insert null terminator
 	mWrite "File size: "
 	call	WriteDec			                   ; display file size
 	call	Crlf
-
-                                                   ; Display the buffer.
-	mWrite <"Buffer:",0dh,0ah,0dh,0ah>
-	mov	edx,OFFSET buffer	                       ; display the buffer
-	call	setCharColor
-	call	Crlf
+                    
 
 close_file:
 	mov	eax,fileHandle
@@ -197,10 +199,48 @@ ColorItBlue PROC
 	ret
 ColorItBlue ENDP
 
+;Displayes the board with each new value
+YDisplay PROC
 
+call clrscr
+
+mov ecx,sizeof EditMatrix
+mov ebp, 0
+DisplayEditLoop:
+mov al, EditMatrix[ebp]
+call Kcompare
+cmp ColorMatrix[ebp],31h
+jne NOTWHITE					
+call DefaultColor			;if WHITE
+jmp SKIP
+
+NOTWHITE:					;else if NOT WHITE
+cmp checkRight,0
+jne CORRECT
+call ColorItRed				;if the current value is WRONG
+jmp SKIP
+
+CORRECT:
+call ColorItGreen			;if the current value is RIGHT
+
+SKIP:
+mov al, EditMatrix[ebp]
+call writeChar				;print the current element in EditMatrix
+inc ebp
+inc Ycounter				
+cmp Ycounter, 9
+jb CONT						
+call crlf					;if Ycounter > 9 endLine
+mov Ycounter, 0
+CONT:
+loop DisplayEditLoop
+
+ret
+YDisplay ENDP
 
 Kedit PROC
 	KL1:
+	call YDisplay
 	mwrite "Enter Row number: "
 	call readint
 	call crlf
@@ -210,7 +250,7 @@ Kedit PROC
 	call crlf
 	mov Col ,al
 	mwrite "Enter Value: "
-	call readint
+	call readchar
 	call crlf
 	mov Value ,al
 	call GetIndex
@@ -218,21 +258,33 @@ Kedit PROC
 	cmp eax,30h
 	je KE
 	mwrite "Invalid row or column u cannot edit this cell"
-	call crlf
+	call waitmsg
 	Loop KL1
 	KE:
 	mov al,Value
-
 	mov EditMatrix[ebp],al
+	;call YDisplay
 	ret
 Kedit ENDP
-
+; Function that compares the edited value 
+Kcompare PROC
+	cmp al,FinalMatrix[ebp]
+	je  right
+	mov al,0
+	mov checkRight,al
+ret
+	right:
+	mov al,1
+	mov checkRight,al
+ret
+Kcompare ENDP
 
 ;Transfares numbers from Buffer to Initioal_Matrix without endlines
 ;and filling the 'ColorMatrix'
 
 TransferData PROC
 mov ecx, sizeOf buffer
+dec ecx
 cmp check,0
 jne finall                       ;if check != 0 go to fill the final matrix
 mov ebx, offset Initial_Matrix   ;if check == 0 fill the initial matrix 
@@ -282,6 +334,8 @@ stosb						;store into EditMatrix
 
 mov YeditOffset, edi
 mov edi, Ytmp
+inc ebx
+jmp Skip
 
 StoreFinal:
 stosb						;store into the finall matrix
@@ -291,45 +345,6 @@ Skip:
 loop TransLoop
 
 ;====================================TEST DISPLAY INITIAL, EDIT, COLOR, FINAL======================
-mov ecx, 81
-mov edx,offset Initial_Matrix
-
-LL:
-mov eax,[edx]
-call writeChar
-inc edx
-loop LL
-
-call crlf
-
-mov ecx, 81
-mov edx,offset EditMatrix
-
-LLLL:
-mov eax,[edx]
-call writeChar
-inc edx
-loop LLLL
-
-call crlf
-mov ecx, 81
-mov edx,offset ColorMatrix
-LLL:
-mov eax,[edx]
-call writeChar
-inc edx
-loop LLL
-
-call crlf
-mov ecx, 81
-mov edx,offset FinalMatrix
-LLLLL:
-mov eax,[edx]
-call writeChar
-inc edx
-loop LLLLL
-
-call crlf
 ;====================================END TEST DISPLAY INITIAL, EDIT, COLOR, FINAL======================
 
 not check
