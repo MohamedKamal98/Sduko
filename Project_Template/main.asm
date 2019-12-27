@@ -13,6 +13,18 @@ FinalMatrix BYTE 81 DUP(?)
 EditMatrix byte 81 dup(?)
 ColorMatrix byte 81 dup(30h)            ;Contains 1 ifthe current char is not 0
 
+; Used to Calculate the time taken to slove the Sudoku
+sysTime SYSTEMTIME <>
+StartHour dword ?
+StartMinute dword ?
+StartSecond dword ?
+EndHour dword ?
+EndMinute dword ?
+EndSecond dword ?
+ResultHour dword ?
+ResultMinute dword ?
+ResultSecond dword ?
+
 YeditOffset dword offset EditMatrix     ; used in filling the EditMatrix
 YcolorOffset dword offset ColorMatrix   ; used in filling the ColorMatrix
 Ytmp dword 0     
@@ -40,7 +52,6 @@ fileHandle  HANDLE ?
 Value byte 0
 .code
 main PROC
-
 mWrite "Choose Level : ",0
 	    call CRLF
 	mWrite "[1] EASY",0
@@ -61,6 +72,7 @@ mov YColCounter, 1
 mov YRowCounter, 1
 mov isFinish, 0
 
+call KStartTime
 MAINLOOP:
 call YDisplay
 
@@ -69,10 +81,91 @@ jmp MAINLOOP
 	exit
 main ENDP
 
+;##############################################################KStartTime#######################################################
+;Get the start time of solving the game
+;###############################################################################################################################
+KStartTime PROC
+INVOKE GetLocalTime, ADDR sysTime
+movzx eax,sysTime.whour
+mov StartHour,eax
+movzx eax,sysTime.wminute
+mov StartMinute,eax
+movzx eax,sysTime.wsecond
+mov StartSecond,eax
+ret
+KStartTime ENDP
 
+;##############################################################KEndTime#######################################################
+;Get the End time after finishing solving
+;###############################################################################################################################
+KEndTime PROC
+INVOKE GetLocalTime, ADDR sysTime
+movzx eax,sysTime.whour
+mov EndHour,eax
+movzx eax,sysTime.wminute
+mov EndMinute,eax
+movzx eax,sysTime.wsecond
+mov EndSecond,eax
+ret
+KEndTime ENDP
 
+;##############################################################KDisplayTime#######################################################
+;Display the Time taken to solve a Sudoku game
+;###############################################################################################################################
+KDisplayTime PROC
 
+mWrite "Time Taken to slove: ",0
 
+mov eax,ResultHour
+cmp eax,0
+je skiphours
+call WriteDec
+mWrite " Hours and ",0
+skiphours:
+
+mov eax,ResultMinute
+cmp eax,0
+je skipminutes
+call WriteDec
+mwrite " Minutes and ",0
+skipminutes:
+
+mov eax,ResultSecond
+call WriteDec
+mwrite" Seconds."
+call crlf
+
+ret
+KDisplayTime ENDP
+
+;##############################################################KCalculateTakenTime#######################################################
+;Calculate the Taken Time to solve the Sudoku and Display it 
+;###############################################################################################################################
+KCalculateTakenTime PROC
+	mov edx,EndHour
+	sub edx,StartHour
+	mov ResultHour,edx
+
+	mov edx,EndMinute
+	cmp edx,StartMinute
+	JNB CalcMin
+	Dec ResultHour
+	add edx,60
+	CalcMin:
+	sub edx,StartMinute
+	mov ResultMinute,edx
+
+	mov edx,EndSecond
+	cmp edx,StartSecond
+	JNB CalcSec
+	Dec ResultMinute
+	add edx,60
+	CalcSec:
+	sub edx,StartSecond
+	mov ResultSecond,edx
+	call KDisplayTime
+ret
+KCalculateTakenTime ENDP
 
 ;##############################################################ShowBoards#######################################################
 ;read the matrix from the file and load it into buffer array
@@ -409,6 +502,7 @@ DEC ecx
 jnz DisplayEditLoop
 cmp isFinish ,0
 je CHOOSE
+call KCalculateTakenTime
 mwrite "Number of correct numbers: "
 mov al, corrects
 call writedec
@@ -440,11 +534,13 @@ cmp al,4
 je save
 jmp mskip
 FinishProc:
+call KEndTime
 mov isFinish, 1
 ret
 
 ClearProc:
 call Clear
+call KStartTime
 ret
 
 editproc:
